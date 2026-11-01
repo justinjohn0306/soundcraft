@@ -343,6 +343,22 @@ fn media_a_session_names_outside_the_read_root_is_not_loaded() {
     assert!(inspect(&mut free)["sources"].as_array().unwrap().iter().all(|x| x["loaded"] == true));
 }
 
+/// `setup.disk_allocation` stores its path trimmed, so the trimmed path is what gets checked. With
+/// the working folder as the write root, `" /abs/outside"` read as given would be `<cwd>/ /abs/outside`
+/// and pass, yet `/abs/outside` would be kept. An empty path still clears the setting.
+#[test]
+fn the_record_folder_is_checked_as_it_is_stored() {
+    let f = fixture("trim");
+    let cwd = std::env::current_dir().unwrap();
+    let mut srv = demo_server(None, Some(&cwd));
+    let spaced = format!(" {}", s(f.outside.join("rec")));
+    refused(&mut srv, "setup.disk_allocation", json!({"path": spaced}), "outside the write root");
+    refused(&mut srv, "setup.disk_allocation", json!({"track": "Kick", "path": spaced}), "outside the write root");
+    ok(&mut srv, "setup.disk_allocation", json!({"path": "  rec  "}));
+    ok(&mut srv, "setup.disk_allocation", json!({"path": ""}));
+    ok(&mut srv, "setup.disk_allocation", json!({"path": "   "}));
+}
+
 #[test]
 fn without_roots_nothing_is_confined() {
     let f = fixture("free");
